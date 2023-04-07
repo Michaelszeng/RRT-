@@ -88,8 +88,9 @@ class RRTGraph:
 
         if math.sqrt((x - self.goal[0])**2 + (y - self.goal[1])**2) < self.goal_tolerance:
             self.goal_flag = True
-            return True
-        return False
+            return True, []
+        return False, []
+        # Returning a second variable [] due to compatibility with RRT_star
 
     def remove_node(self, id):
         del self.tree[id]
