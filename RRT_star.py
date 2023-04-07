@@ -1,13 +1,15 @@
 """
-Helper functions and classes for RRT algorithm
+Helper functions and classes for RRT* algorithm
 """
 import math
 import random
 import pygame
 import numpy as np
 
-class RRTGraph:
-    def __init__(self, start, goal, map_dimensions, step_size, obstacles, goal_tolerance = 20):
+from RRT import *
+
+class RRTStarGraph(RRTGraph):
+    def __init__(self, start, goal, map_dimensions, step_size, obstacles, goal_tolerance = 20, neighborhood_radius = 50):
         self.start = start
         self.goal = goal
         self.goal_flag = False
@@ -17,43 +19,10 @@ class RRTGraph:
         self.goal_flag = False
         self.path = []
         self.goal_tolerance = goal_tolerance
+        self.neighborhood_radius = neighborhood_radius  # for RRT* rewiring step
 
         # Tree dictionary. keys are node ID, values are tuple of own coordinates and parent ID
         self.tree = {0: (start, 0)}  # start node is its own parent
-    
-    def in_obstacle(self, x, y):
-        # Check if the node intersects with any obstacles
-        for obs in self.obstacles:
-            if math.sqrt((x - obs.x)**2 + (y - obs.y)**2) < obs.radius:
-                return True
-        return False
-    
-    def clear_path(self, x1, y1, x2, y2):
-        """
-        Check if there is a clear path between two nodes. Returns True or False.
-        """
-        # System of equations
-        # slope of path
-        try:
-            m = (y1 - y2) / (x1 - x2)
-        except:
-            return False
-        
-        for obs in self.obstacles:
-            try:
-                # Calculating intersection point between path and perpendicular line to the path from obstacle
-                m_perp = -1 / m  # slope of perpendicular line
-                matrix = np.array([[-m, 1], [-m_perp, 1]])
-                b = np.array([y1 - m * x1, obs.y - m_perp * obs.x])
-                x, y = np.linalg.inv(matrix).dot(b)
-            except:  # if the path is vertical (matrix should never be singular)
-                print("Matrix Calculation Error")
-                return False
-
-            obstacle_to_path_distance = math.sqrt((x - obs.x)**2 + (y - obs.y)**2)
-            if obstacle_to_path_distance < obs.radius:
-                return False
-        return True
 
     def get_nearest_node(self, input_node_x, input_node_y, id_to_ignore = []):
         """
@@ -87,9 +56,6 @@ class RRTGraph:
             self.goal_flag = True
             return True
         return False
-
-    def remove_node(self, id):
-        del self.tree[id]
     
     def valid_node(self, x, y, nearest_node_x, nearest_node_y):
         """
