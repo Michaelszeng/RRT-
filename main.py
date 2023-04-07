@@ -6,10 +6,8 @@ Author: Michael Zeng
 pip install -r requirements.txt
 """
 import pygame
+import time
 from RRT import *
-
-
-step_size = 1
 
 
 def main():
@@ -28,6 +26,18 @@ def main():
     goal = (1100, 700)
     window = Window(start, goal, dimensions, obstacles)
     window.draw_map()
+
+    # Initialize RRT Graph
+    graph = RRTGraph(start, goal, dimensions, 20, obstacles)
+
+    iteration = 0
+    while iteration < 1000:
+        x, y, parent = graph.generate_random_next_node()  # returns valid next node
+        graph.add_node(x, y, parent)
+        pygame.draw.circle(window.window, (255, 255, 255), (x, y), window.node_radius, window.node_thickness)
+        pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[parent][0][0], graph.tree[parent][0][1]), window.edge_thickness)
+        pygame.display.update()
+        iteration += 1
 
     pygame.display.update()
     pygame.event.clear()
