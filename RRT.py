@@ -34,7 +34,7 @@ class Window:
         pass
 
 class RRTGraph:
-    def __init__(self, start, goal, map_dimensions, step_size, obstacles):
+    def __init__(self, start, goal, map_dimensions, step_size, obstacles, goal_tolerance = 20):
         self.start = start
         self.goal = goal
         self.goal_flag = False
@@ -43,6 +43,7 @@ class RRTGraph:
         self.obstacles = obstacles
         self.goal_flag = False
         self.path = []
+        self.goal_tolerance = goal_tolerance
 
         # Tree dictionary. keys are node ID, values are tuple of own coordinates and parent ID
         self.tree = {0: (start, 0)}  # start node is its own parent
@@ -105,7 +106,11 @@ class RRTGraph:
         id = len(self.tree)  # Create new id for node
         parent = nearest_node_id
         self.tree[id] = ((x,y), parent)
-        return True
+        
+        if math.sqrt((x - self.goal[0])**2 + (y - self.goal[1])**2) < self.goal_tolerance:
+            self.goal_flag = True
+            return True
+        return False
 
     def remove_node(self, id):
         del self.tree[id]
@@ -164,8 +169,16 @@ class RRTGraph:
             
             safety_counter -= 1
 
-    def reached_goal(self):
-        pass
+    def return_path(self):
+        while True:
+            path = [(self.goal[0], self.goal[1])]
+            node_id = len(self.tree)-1
+            while node_id is not 0:
+                path.append(self.tree[node_id][0])  # (x,y) tuple
+                node_id = self.tree[node_id][1]
+            path.append((self.start[0], self.start[1]))
+            path.reverse()
+            return path
 
 
 class Obstacle:

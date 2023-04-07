@@ -31,13 +31,24 @@ def main():
     graph = RRTGraph(start, goal, dimensions, 20, obstacles)
 
     iteration = 0
-    while iteration < 1000:
+    while iteration < 10000 and not graph.goal_flag:
         x, y, parent = graph.generate_random_next_node()  # returns valid next node
-        graph.add_node(x, y, parent)
+        goal_flag = graph.add_node(x, y, parent)
         pygame.draw.circle(window.window, (255, 255, 255), (x, y), window.node_radius, window.node_thickness)
         pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[parent][0][0], graph.tree[parent][0][1]), window.edge_thickness)
         pygame.display.update()
         iteration += 1
+
+    if goal_flag:
+        print("Solution found.")
+        path = graph.return_path()
+        print(path)
+        # draw path
+        for i, vtx in enumerate(path[:-1]):
+            pygame.draw.circle(window.window, (0, 255, 0), (vtx[0], vtx[1]), window.node_radius, window.node_thickness)
+            pygame.draw.line(window.window, (0, 200, 0), (vtx[0], vtx[1]), (path[i+1][0], path[i+1][1]), window.edge_thickness)
+    else:
+        print("No solution found.")
 
     pygame.display.update()
     pygame.event.clear()
