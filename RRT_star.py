@@ -107,13 +107,28 @@ class RRTStarGraph(RRTGraph):
             
             safety_counter -= 1
 
-    def return_path(self):
-        while True:
-            path = [(self.goal[0], self.goal[1])]
-            node_id = len(self.tree)-1
-            while node_id is not 0:
-                path.append(self.tree[node_id][0])  # (x,y) tuple
-                node_id = self.tree[node_id][1]
-            path.append((self.start[0], self.start[1]))
-            path.reverse()
-            return path
+    def rewire(self, id):
+        """
+        Rewiring step of RRT*. Takes in the ID of a new node and finds all nodes
+        in the new node's neighborhood. Attempts to find a shorter path to each
+        of the new node's neighbors.
+
+        Note: to reduce computation, the neighborhood is calculated using
+        mahattan distance instead of euclidean distance.
+        """
+        new_node_x = self.tree[id][0][0]
+        new_node_y = self.tree[id][0][1]
+        for node_id in self.tree:
+            node_x = self.tree[node_id][0][0]
+            node_y = self.tree[node_id][0][1]
+            if node_id != id:
+                # check if node is in neighborhood of new node
+                if math.abs(new_node_x - node_x) < self.neighborhood_radius and math.abs(new_node_y - node_y) < self.neighborhood_radius:
+                    if self.clear_path(new_node_x, new_node_y, node_x, node_y):
+                        node_parent_id = self.tree[node_id][1]
+                        node_parent_x = self.tree[node_parent_id][0][0]
+                        node_parent_y = self.tree[node_parent_id][0][1]
+                        # Check if new path is shorter
+                        if math.abs(new_node_x - node_x) + math.abs(new_node_y - node_y) < math.abs(node_parent_x - node_x) + math.abs(node_parent_y - node_y):
+                            # Change parent of node (remaking the whole tuple bc tuples are immutable)
+                            self.tree[node_id] = (self.tree[node_id][0], id)

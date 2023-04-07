@@ -1,5 +1,8 @@
 """
-RRT* algorithm implementation and visualization
+RRT* algorithm implementation and visualization.
+
+Note: main reason it is slow is because the entire map is redrawn every loop.
+However, this modification was necessary because of the nature of RRT*.
 
 Author: Michael Zeng
 
@@ -41,28 +44,37 @@ def main():
     start = (100, 100)
     goal = (1100, 700)
     window = Window(start, goal, dimensions, obstacles)
-    window.draw_map()
 
-    step_size = 20
+    step_size = 40
 
     # SELECT ONE OF THE FOLLOWING: 
-    # graph = RRTGraph(start, goal, dimensions, step_size, obstacles)
-    graph = RRTStarGraph(start, goal, dimensions, step_size, obstacles)
+    graph = RRTGraph(start, goal, dimensions, step_size, obstacles)
+    # graph = RRTStarGraph(start, goal, dimensions, step_size, obstacles)
 
     iteration = 0
     while iteration < 10000 and not graph.goal_flag:
         x, y, parent = graph.generate_random_next_node()  # returns valid next node
         goal_flag = graph.add_node(x, y, parent)
-        pygame.draw.circle(window.window, (255, 255, 255), (x, y), window.node_radius, window.node_thickness)
-        pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[parent][0][0], graph.tree[parent][0][1]), window.edge_thickness)
-        pygame.display.update()
+
+        window.draw_map()
+        for node_id, node_value in graph.tree.items():
+            if node_id == 0:
+                continue
+            node_x = node_value[0][0]
+            node_y = node_value[0][1]
+            node_parent_x = graph.tree[node_value[1]][0][0]
+            node_parent_y = graph.tree[node_value[1]][0][1]
+            pygame.draw.circle(window.window, (255, 255, 255), (node_x, node_y), window.node_radius, window.node_thickness)
+            pygame.draw.line(window.window, (255, 0, 0), (node_x, node_y), (node_parent_x, node_parent_y), window.edge_thickness)
+            pygame.display.update()
         iteration += 1
 
     if goal_flag:
         print("Solution found.")
-        path = graph.return_path()
+        path = graph.return_path()  # list of vertices
         print(path)
         # draw path
+        window.draw_map()
         for i, vtx in enumerate(path[:-1]):
             pygame.draw.circle(window.window, (0, 255, 0), (vtx[0], vtx[1]), window.node_radius, window.node_thickness)
             pygame.draw.line(window.window, (0, 200, 0), (vtx[0], vtx[1]), (path[i+1][0], path[i+1][1]), window.edge_thickness)
