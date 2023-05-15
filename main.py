@@ -58,7 +58,7 @@ def main():
         pass
 
     iteration = 0
-    while iteration < 10000:
+    while iteration < 1000:
         print("Iteration: ", iteration)
         time.sleep(0.1)
         x, y, nearest_node = graph.generate_random_next_node()  # returns valid next node
@@ -71,6 +71,14 @@ def main():
             pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[nearest_node][0][0], graph.tree[nearest_node][0][1]), window.edge_thickness)
 
         for delete_edge, add_edge in rewired_edges.items():
+            # Drawing deleted edge
+            delete_edge_x1 = graph.tree[delete_edge[0]][0][0]
+            delete_edge_y1 = graph.tree[delete_edge[0]][0][1]
+            delete_edge_x2 = graph.tree[delete_edge[1]][0][0]
+            delete_edge_y2 = graph.tree[delete_edge[1]][0][1]
+            # draw a black line of the edge to delete
+            pygame.draw.line(window.window, (0, 0, 0), (delete_edge_x1, delete_edge_y1), (delete_edge_x2, delete_edge_y2), window.edge_thickness)
+
             # Drawing added edge
             add_edge_x1 = graph.tree[add_edge[0]][0][0]
             add_edge_y1 = graph.tree[add_edge[0]][0][1]

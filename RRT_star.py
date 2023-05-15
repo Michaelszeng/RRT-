@@ -72,7 +72,7 @@ class RRTStarGraph(RRTGraph):
         new_node_x = self.tree[new_node_id][0][0]
         new_node_y = self.tree[new_node_id][0][1]
 
-        new_node_neighbors = []
+        new_node_neighbors = []  # list of node IDs that are in the neighborhood of the new node (not including the node itself, but yes including the node's original parent, nearest_node)
         for neighbor, neighbor_data in self.tree.items():
             if neighbor != new_node_id:
                 node_x = neighbor_data[0][0]
@@ -89,15 +89,9 @@ class RRTStarGraph(RRTGraph):
                         self.tree[new_node_id] = (new_node_coords, neighbor, neighbor_data[2] + dist)
                         if visualize:
                             rewired_edges[(new_node_id, parent_id)] = (new_node_id, neighbor)
-        print(new_node_neighbors)
-        print(rewired_edges)
-        return rewired_edges
-        
-        
 
 
-
-        def compare_cost_v2(neighbor_id, old_parent_id, new_parent_id):
+        def compare_cost_v2(neighbor_id, neighbor_x, neighbor_y, old_parent_id, old_parent_x, old_parent_y, new_parent_id, new_parent_x, new_parent_y):
             """
             Helper function to determine if rewiring is beneficial. Returns
             True if new_parent_id has lower cost path to neighbor.
@@ -107,11 +101,11 @@ class RRTStarGraph(RRTGraph):
             # We will explore up the tree from both the old parent and new parent,
             # keeping track of the total cost and sets of parent nodes explored. 
             # Once we find a common parent in the two sets, we will compare the
-            # Costs and return the ID of the parent with the lower cost.
+            # costs and return the ID of the parent with the lower cost.
 
             # Manhattan distance
-            neighbor_to_old_parent_cost = math.fabs(self.tree[neighbor_id][0][0] - self.tree[old_parent_id][0][0]) + math.fabs(self.tree[neighbor_id][0][1] - self.tree[old_parent_id][0][1])
-            neighbor_to_new_parent_cost = math.fabs(self.tree[neighbor_id][0][0] - self.tree[new_parent_id][0][0]) + math.fabs(self.tree[neighbor_id][0][1] - self.tree[new_parent_id][0][1])
+            neighbor_to_old_parent_cost = math.fabs(neighbor_x - old_parent_x) + math.fabs(neighbor_y - old_parent_y)
+            neighbor_to_new_parent_cost = math.fabs(neighbor_x - new_parent_x) + math.fabs(neighbor_y - new_parent_y)
 
             # keys are node IDs, values are total cost to get to that node
             nodes_explored_from_old_parent = {old_parent_id: neighbor_to_old_parent_cost}
@@ -121,8 +115,6 @@ class RRTStarGraph(RRTGraph):
             # start from the old parent's parent and new node's parent
             current_node_old_parent = old_parent_id
             current_node_new_parent = new_parent_id
-            # current_node_old_parent = self.tree[old_parent_id][1]
-            # current_node_new_node = self.tree[new_parent_id][1]
 
             EXPLORATION_LIMIT = 50  # if it needs to search back more than 50, give up for efficiency's sake
             while len(nodes_explored_from_new_parent) < EXPLORATION_LIMIT:
@@ -152,26 +144,35 @@ class RRTStarGraph(RRTGraph):
                 # Update current nodes to progress up the tree
                 current_node_old_parent = explore_from_old
                 current_node_new_parent = explore_from_new
-        
 
 
-        # new_node_x = self.tree[new_node_id][0][0]
-        # new_node_y = self.tree[new_node_id][0][1]
 
-        # for node_id in self.tree:  # node_id is id of the potential neighbor being explored
-        #     node_x = self.tree[node_id][0][0]
-        #     node_y = self.tree[node_id][0][1]
-        #     # check that found node isn't the new node, found node isn't the new node's parent, and found node is in neighborhood of new node
-        #     if self.tree[new_node_id][1] != node_id and (math.fabs(new_node_x - node_x) + math.fabs(new_node_y - node_y)) < self.neighborhood_radius:
-        #         if self.clear_path(new_node_x, new_node_y, node_x, node_y):
-        #             node_parent_id = self.tree[node_id][1]
-        #             # Check if new path from new node to found node is shorter than original path to found node (from found node's parent)
-        #             if compare_cost_v2(node_id, node_parent_id, new_node_id):  # True if path from new node to found node is shorter
-        #                 if visualize:
-        #                     rewired_edges.append((node_id, node_parent_id))
-        #                 # Change parent of node (remaking the whole tuple bc tuples are immutable)
-        #                 self.tree[node_id] = (self.tree[node_id][0], new_node_id)
-        # return rewired_edges
+        for neighbor in new_node_neighbors:
+            neighbor_x = self.tree[neighbor][0][0]
+            neighbor_y = self.tree[neighbor][0][1]
+
+            if self.clear_path(new_node_x, new_node_y, neighbor_x, neighbor_y):
+                neighbor_parent = self.tree[neighbor][1]
+                neighbor_parent_x = self.tree[neighbor_parent][0][0]
+                neighbor_parent_y = self.tree[neighbor_parent][0][1]
+                neighbor_cost = self.tree[neighbor][2]
+                
+                # True if cost of path going through new node is shorter than the path going through the neighbor's old parent
+                if compare_cost_v2(neighbor, neighbor_x, neighbor_y, neighbor_parent, neighbor_parent_x, neighbor_parent_y, new_node_id, new_node_x, new_node_y):
+                    if visualize:
+                        rewired_edges[(neighbor, neighbor_parent)] = (neighbor, new_node_id)
+
+                    # Update cost of neighbor
+                    dist_neighbor_to_new_node = math.sqrt((neighbor_x - new_node_x)**2 + math.fabs(neighbor_y - new_node_y)**2)
+                    dist_neighbor_to_neighbor_parent = math.sqrt((neighbor_x - neighbor_parent_x)**2 + math.fabs(neighbor_y - neighbor_parent_y)**2)
+                    new_neighbor_cost = neighbor_cost - dist_neighbor_to_neighbor_parent + dist_neighbor_to_new_node
+
+                    # Change parent of neighbor to new_node (remaking the whole tuple bc tuples are immutable)
+                    self.tree[neighbor] = ((neighbor_x, neighbor_y), new_node_id, new_neighbor_cost)
+
+        print(rewired_edges)
+        return rewired_edges
+
     
     def valid_node(self, x, y, nearest_node_x, nearest_node_y):
         """
