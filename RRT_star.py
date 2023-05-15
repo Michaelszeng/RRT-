@@ -10,20 +10,18 @@ import numpy as np
 from RRT import *
 
 class RRTStarGraph(RRTGraph):
-    def __init__(self, start, goal, map_dimensions, step_size, obstacles, goal_tolerance = 20, neighborhood_radius = 50):
+    def __init__(self, start, goal, map_dimensions, step_size, obstacles, goal_tolerance = 50, neighborhood_radius = 250):
         self.start = start
         self.goal = goal
-        self.goal_flag = False
         self.map_dimensions = map_dimensions
         self.step_size = step_size
         self.obstacles = obstacles
-        self.goal_flag = False
         self.path = []
         self.goal_tolerance = goal_tolerance
         self.neighborhood_radius = neighborhood_radius  # for RRT* rewiring step
 
         # Tree dictionary. keys are node ID, values are tuple of own coordinates and parent ID
-        self.tree = {0: (start, 0)}  # start node is its own parent
+        self.tree = {0: (self.start, 0)}  # start node is its own parent
 
     def get_nearest_node(self, input_node_x, input_node_y, id_to_ignore = []):
         """
@@ -55,11 +53,98 @@ class RRTStarGraph(RRTGraph):
         
         rewired_edges = self.rewire(new_node_id)
 
-        if math.sqrt((x - self.goal[0])**2 + (y - self.goal[1])**2) < self.goal_tolerance:
-            self.goal_flag = True
+        # Manhattan distance
+        if math.fabs(x - self.goal[0]) + math.fabs(y - self.goal[1]) < self.goal_tolerance:
             return True, rewired_edges
 
         return False, rewired_edges
+    
+    def rewire(self, new_node_id, visualize = True):
+        """
+        Rewiring step of RRT*. Takes in the ID of a new node and finds all nodes
+        in the new node's neighborhood. Attempts to find a shorter path to each
+        of the new node's neighbors.
+
+        Note: to reduce computation, the neighborhood is calculated using
+        mahattan distance instead of euclidean distance.
+
+        If visualize is set to True, Returns a list of tuples of node IDs that 
+        were rewired. This way, the program knows which edges to "undraw" (i.e.
+        draw over with in black).
+        """
+        def compare_cost_v2(neighbor_id, old_parent_id, new_parent_id):
+            """
+            Helper function to determine if rewiring is beneficial. Returns
+            True if new_parent_id has lower cost path to neighbor.
+
+            Note: new_parent_id is the id of the new node.
+            """
+            # We will explore up the tree from both the old parent and new parent,
+            # keeping track of the total cost and sets of parent nodes explored. 
+            # Once we find a common parent in the two sets, we will compare the
+            # Costs and return the ID of the parent with the lower cost.
+
+            # Manhattan distance
+            neighbor_to_old_parent_cost = math.fabs(self.tree[neighbor_id][0][0] - self.tree[old_parent_id][0][0]) + math.fabs(self.tree[neighbor_id][0][1] - self.tree[old_parent_id][0][1])
+            neighbor_to_new_parent_cost = math.fabs(self.tree[neighbor_id][0][0] - self.tree[new_parent_id][0][0]) + math.fabs(self.tree[neighbor_id][0][1] - self.tree[new_parent_id][0][1])
+
+            # keys are node IDs, values are total cost to get to that node
+            nodes_explored_from_old_parent = {old_parent_id: neighbor_to_old_parent_cost}
+            nodes_explored_from_new_parent = {new_parent_id: neighbor_to_new_parent_cost}
+
+            # "current" variables hold id of current node being explored
+            # start from the old parent's parent and new node's parent
+            current_node_old_parent = old_parent_id
+            current_node_new_parent = new_parent_id
+            # current_node_old_parent = self.tree[old_parent_id][1]
+            # current_node_new_node = self.tree[new_parent_id][1]
+
+            EXPLORATION_LIMIT = 50  # if it needs to search back more than 50, give up for efficiency's sake
+            while len(nodes_explored_from_new_parent) < EXPLORATION_LIMIT:
+                # explore a new node from both the old parent path and new parent path
+                explore_from_old = self.tree[current_node_old_parent][1]
+                explore_from_new = self.tree[current_node_new_parent][1]
+                
+                # calculate the total cost to the newly explored nodes
+                nodes_explored_from_old_parent[explore_from_old] = nodes_explored_from_old_parent[current_node_old_parent] + math.fabs(self.tree[current_node_old_parent][0][0] - self.tree[explore_from_old][0][0]) + math.fabs(self.tree[current_node_old_parent][0][1] - self.tree[explore_from_old][0][1])
+                nodes_explored_from_new_parent[explore_from_new] = nodes_explored_from_new_parent[current_node_new_parent] + math.fabs(self.tree[current_node_new_parent][0][0] - self.tree[explore_from_new][0][0]) + math.fabs(self.tree[current_node_new_parent][0][1] - self.tree[explore_from_new][0][1])
+
+                # Check if there is a shared node in the two sets of explored nodes
+                intersection = set(nodes_explored_from_old_parent.keys()) & set(nodes_explored_from_new_parent.keys())
+                if intersection:  # if there is a shared node, compare the cost of the paths from the shared node to the new node
+                    shared_parent_id = intersection.pop()
+                    # print("Intersection found!")
+                    # print("nodes_explored_from_old_parent: " + str(nodes_explored_from_old_parent))
+                    # print("nodes_explored_from_new_parent: " + str(nodes_explored_from_new_parent))
+                    # print("intersection: " + str(intersection))
+                    # print("nodes_explored_from_old_parent[shared_parent_id]: " + str(nodes_explored_from_old_parent[shared_parent_id]))
+                    # print("nodes_explored_from_new_parent[shared_parent_id]: " + str(nodes_explored_from_new_parent[shared_parent_id]))
+                    # True if new parent has lower cost
+                    return nodes_explored_from_new_parent[shared_parent_id] < nodes_explored_from_old_parent[shared_parent_id]
+                
+                # Update current nodes to progress up the tree
+                current_node_old_parent = explore_from_old
+                current_node_new_parent = explore_from_new
+        
+        new_node_x = self.tree[new_node_id][0][0]
+        new_node_y = self.tree[new_node_id][0][1]
+
+        # list of tuples of node IDs that were rewired
+        rewired_edges = []
+        for node_id in self.tree:  # node_id is id of the potential neighbor being explored
+            node_x = self.tree[node_id][0][0]
+            node_y = self.tree[node_id][0][1]
+            # check that found node isn't the new node, found node isn't the new node's parent, and found node is in neighborhood of new node
+            if self.tree[new_node_id][1] != node_id and (math.fabs(new_node_x - node_x) + math.fabs(new_node_y - node_y)) < self.neighborhood_radius:
+                if self.clear_path(new_node_x, new_node_y, node_x, node_y):
+                    node_parent_id = self.tree[node_id][1]
+                    # Check if new path from new node to found node is shorter than original path to found node (from found node's parent)
+                    if compare_cost_v2(node_id, node_parent_id, new_node_id):  # True if path from new node to found node is shorter
+                        if visualize:
+                            rewired_edges.append((node_id, node_parent_id))
+                        # Change parent of node (remaking the whole tuple bc tuples are immutable)
+                        self.tree[node_id] = (self.tree[node_id][0], new_node_id)
+        return rewired_edges
     
     def valid_node(self, x, y, nearest_node_x, nearest_node_y):
         """
@@ -80,7 +165,7 @@ class RRTStarGraph(RRTGraph):
         Select random points on map until it finds one that produces a valid
         next node. Returns the coordinates and parent ID of the new node.
 
-        Assumes a possible node is can always be found.
+        Assumes a possible node can always be found.
         """
         safety_counter = 1000
         while safety_counter > 0:
@@ -110,100 +195,3 @@ class RRTStarGraph(RRTGraph):
                 return x, y, nearest_node_id
             
             safety_counter -= 1
-
-    def rewire(self, new_node_id, visualize = True):
-        """
-        Rewiring step of RRT*. Takes in the ID of a new node and finds all nodes
-        in the new node's neighborhood. Attempts to find a shorter path to each
-        of the new node's neighbors.
-
-        Note: to reduce computation, the neighborhood is calculated using
-        mahattan distance instead of euclidean distance.
-
-        If visualize is set to True, Returns a list of tuples of node IDs that 
-        were rewired. This way, the program knows which edges to "undraw" (i.e.
-        draw over with in black).
-        """
-        print("new_node_id: " + str(new_node_id))
-        def compare_cost(main_node_id, old_parent_id, new_parent_id):
-            """
-            Helper function to determine if rewiring is beneficial. Returns
-            either old_parent_id or new_parent_id depending on which has lower
-            cost.
-            """
-            # First step: find common parent between both paths. We explore from
-            # the newest node up the tree.
-            # Using sets for easier set to set comparision
-            nodes_explored_from_old_parent = set()
-            nodes_explored_from_new_node = set()
-            # "current" variables hold id of current node being explored
-            # start from the old parent's parent and new node's parent
-            current_node_old_parent = self.tree[old_parent_id][1]
-            current_node_new_node = self.tree[new_parent_id][1]
-            while True:
-                nodes_explored_from_old_parent.add(current_node_old_parent)
-                nodes_explored_from_new_node.add(current_node_new_node)
-                intersection = nodes_explored_from_old_parent & nodes_explored_from_new_node
-                if intersection:  # if the intersection of the 2 sets is not empty
-                    # find the common parent
-                    common_parent_id = intersection.pop()
-                    break
-                current_node_old_parents_parent = self.tree[current_node_old_parent][1]
-                current_node_new_nodes_parent = self.tree[current_node_new_node][1]
-                current_node_old_parent = current_node_old_parents_parent
-                current_node_new_node = current_node_new_nodes_parent
-            print(main_node_id)
-            print("common parent id: {}".format(common_parent_id))
-
-            # Second step: calculate cost of both paths. we start from the main
-            # node until we reach the to common parent.
-            # cost heuristic is path length using manhattan distance
-            old_cost = 0
-            node1 = self.tree[main_node_id]
-            node2 = self.tree[old_parent_id]
-            while node1[1] != common_parent_id:
-                # node 2 should always be the parent of node 1
-                old_cost += math.fabs(node1[0][0] - node2[0][0]) + math.fabs(node1[0][1] - node2[0][1])
-                print(node1[1])
-                # time.sleep(1)
-                node2 = self.tree[node2[1]]  # set node2 to its parent
-                node1 = node2  # set node1 to its parent
-
-            print("escaped")
-            
-            new_cost = 0
-            node1 = self.tree[main_node_id]
-            node2 = self.tree[new_parent_id]
-            while node1[1] != common_parent_id:
-                # node 2 should always be the parent of node 1
-                old_cost += math.fabs(node1[0][0] - node2[0][0]) + math.fabs(node1[0][1] - node2[0][1])
-                node2 = self.tree[node2[1]]  # set node2 to its parent
-                node1 = node2   # set node1 to its parent
-
-            # Third step: compare costs and return the parent with the lower cost
-            if old_cost < new_cost:
-                return old_parent_id
-            return new_parent_id
-        
-        
-
-        new_node_x = self.tree[new_node_id][0][0]
-        new_node_y = self.tree[new_node_id][0][1]
-
-        # list of tuples of node IDs that were rewired
-        rewired_edges = []
-        for node_id in self.tree:
-            node_x = self.tree[node_id][0][0]
-            node_y = self.tree[node_id][0][1]
-            if node_id != new_node_id:
-                # check if node is in neighborhood of new node and isn't the new node's parent
-                if math.fabs(new_node_x - node_x) + math.fabs(new_node_y - node_y) < self.neighborhood_radius and self.tree[new_node_id][1] != node_id:
-                    if self.clear_path(new_node_x, new_node_y, node_x, node_y):
-                        node_parent_id = self.tree[node_id][1]
-                        # Check if new path is shorter
-                        if compare_cost(node_id, node_parent_id, new_node_id) == new_node_id:
-                            if visualize:
-                                rewired_edges.append((node_id, node_parent_id))
-                            # Change parent of node (remaking the whole tuple bc tuples are immutable)
-                            self.tree[node_id] = (self.tree[node_id][0], new_node_id)
-        return rewired_edges

@@ -150,7 +150,7 @@ class RRTGraph:
         while True:
             path = [(self.goal[0], self.goal[1])]
             node_id = len(self.tree)-1
-            while node_id is not 0:
+            while node_id != 0:
                 path.append(self.tree[node_id][0])  # (x,y) tuple
                 node_id = self.tree[node_id][1]
             path.append((self.start[0], self.start[1]))

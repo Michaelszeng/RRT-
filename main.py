@@ -59,6 +59,8 @@ def main():
 
     iteration = 0
     while iteration < 1000:
+        print("Iteration: ", iteration)
+        time.sleep(1)
         x, y, parent = graph.generate_random_next_node()  # returns valid next node
         goal_flag, rewired_edges = graph.add_node(x, y, parent)
 
@@ -71,6 +73,9 @@ def main():
             edge_parent_node_y = graph.tree[edge_parent_node_id][0][1]
             # cover up old edge with black
             pygame.draw.line(window.window, (0, 0, 0), (edge_main_node_x, edge_main_node_y), (edge_parent_node_x, edge_parent_node_y), window.edge_thickness)
+            # redraw the 2 nodes that were connected by the old edge (bc it got partially covered in black)
+            pygame.draw.circle(window.window, (255, 255, 255), (edge_main_node_x, edge_main_node_y), window.node_radius, window.node_thickness)
+            pygame.draw.circle(window.window, (255, 255, 255), (edge_parent_node_x, edge_parent_node_y), window.node_radius, window.node_thickness)
             # draw the new edge that replaced it
             pygame.draw.line(window.window, (255, 0, 0), (edge_main_node_x, edge_main_node_y), (x, y), window.edge_thickness)
 
@@ -78,8 +83,15 @@ def main():
         pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[parent][0][0], graph.tree[parent][0][1]), window.edge_thickness)
         pygame.display.update()
 
-        if RRT and goal_flag:
-            break
+        if goal_flag:
+            if RRT:  # For RRT, end once goal is reached
+                break
+            else:  # For RRT*, continue until max iterations reached since we can continue to optimize the path.
+                path = graph.return_path()
+                # draw path
+                for i, vtx in enumerate(path[:-1]):
+                    pygame.draw.circle(window.window, (0, 255, 0), (vtx[0], vtx[1]), window.node_radius, window.node_thickness)
+                    pygame.draw.line(window.window, (0, 200, 0), (vtx[0], vtx[1]), (path[i+1][0], path[i+1][1]), window.edge_thickness)
 
         iteration += 1
 
