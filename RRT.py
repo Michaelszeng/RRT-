@@ -82,14 +82,14 @@ class RRTGraph:
         Returns True if the new node is within the goal tolerance of the goal.
         False otherwise.
         """
-        id = len(self.tree)  # Create new id for node
+        new_node_id = len(self.tree)  # Create new id for node
         parent = nearest_node_id
-        self.tree[id] = ((x, y), parent)
+        self.tree[new_node_id] = ((x, y), parent)
 
         if math.sqrt((x - self.goal[0])**2 + (y - self.goal[1])**2) < self.goal_tolerance:
             self.goal_flag = True
-            return True, []
-        return False, []
+            return new_node_id, True, []
+        return new_node_id, False, []
         # Returning a second variable [] due to compatibility with RRT_star
 
     def remove_node(self, id):

@@ -37,9 +37,9 @@ def main():
     obstacles.append(obs5)  # 0 velocity at time 0 (and all other times)
 
     # Initialize pygame window
-    dimensions = (1200, 800)
+    dimensions = (1200, 600)
     start = (100, 100)
-    goal = (1100, 700)
+    goal = (1100, 450)
     window = Window(start, goal, dimensions, obstacles)
     window.draw_map()
 
@@ -58,29 +58,27 @@ def main():
         pass
 
     iteration = 0
-    while iteration < 1000:
+    while iteration < 10000:
         print("Iteration: ", iteration)
-        time.sleep(1)
-        x, y, parent = graph.generate_random_next_node()  # returns valid next node
-        goal_flag, rewired_edges = graph.add_node(x, y, parent)
-
-        for edge in rewired_edges:
-            edge_main_node_id = edge[0]
-            edge_main_node_x = graph.tree[edge_main_node_id][0][0]
-            edge_main_node_y = graph.tree[edge_main_node_id][0][1]
-            edge_parent_node_id = edge[1]
-            edge_parent_node_x = graph.tree[edge_parent_node_id][0][0]
-            edge_parent_node_y = graph.tree[edge_parent_node_id][0][1]
-            # cover up old edge with black
-            pygame.draw.line(window.window, (0, 0, 0), (edge_main_node_x, edge_main_node_y), (edge_parent_node_x, edge_parent_node_y), window.edge_thickness)
-            # redraw the 2 nodes that were connected by the old edge (bc it got partially covered in black)
-            pygame.draw.circle(window.window, (255, 255, 255), (edge_main_node_x, edge_main_node_y), window.node_radius, window.node_thickness)
-            pygame.draw.circle(window.window, (255, 255, 255), (edge_parent_node_x, edge_parent_node_y), window.node_radius, window.node_thickness)
-            # draw the new edge that replaced it
-            pygame.draw.line(window.window, (255, 0, 0), (edge_main_node_x, edge_main_node_y), (x, y), window.edge_thickness)
+        time.sleep(0.1)
+        x, y, nearest_node = graph.generate_random_next_node()  # returns valid next node
+        new_node, goal_flag, rewired_edges = graph.add_node(x, y, nearest_node)
 
         pygame.draw.circle(window.window, (255, 255, 255), (x, y), window.node_radius, window.node_thickness)
-        pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[parent][0][0], graph.tree[parent][0][1]), window.edge_thickness)
+        
+        # Only draw edge between new node and nearest_node if there was no successful rewiring of the new node
+        if (new_node, nearest_node) not in rewired_edges:
+            pygame.draw.line(window.window, (255, 0, 0), (x, y), (graph.tree[nearest_node][0][0], graph.tree[nearest_node][0][1]), window.edge_thickness)
+
+        for delete_edge, add_edge in rewired_edges.items():
+            # Drawing added edge
+            add_edge_x1 = graph.tree[add_edge[0]][0][0]
+            add_edge_y1 = graph.tree[add_edge[0]][0][1]
+            add_edge_x2 = graph.tree[add_edge[1]][0][0]
+            add_edge_y2 = graph.tree[add_edge[1]][0][1]
+            # draw the new edge that replaced it
+            pygame.draw.line(window.window, (255, 0, 0), (add_edge_x1, add_edge_y1), (add_edge_x2, add_edge_y2), window.edge_thickness)
+
         pygame.display.update()
 
         if goal_flag:
