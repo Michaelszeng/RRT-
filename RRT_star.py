@@ -13,12 +13,14 @@ class RRTStarGraph(RRTGraph):
     def __init__(self, start, goal, map_dimensions, step_size, obstacles, goal_tolerance = 50, neighborhood_radius = 0):
         self.start = start
         self.goal = goal
+        self.goal_flag = False
+        self.end_node = None
         self.map_dimensions = map_dimensions
         self.step_size = step_size
         self.obstacles = obstacles
         self.path = []
         self.goal_tolerance = goal_tolerance
-        self.neighborhood_radius = 1.5 * step_size  # for RRT* rewiring step
+        self.neighborhood_radius = 1.75 * step_size  # for RRT* rewiring step
 
         # Tree dictionary. keys are node ID, values are tuple of own coordinates, parent ID, and current cost from start node.
         self.tree = {0: (self.start, 0, 0)}  # start node is its own parent
@@ -42,9 +44,11 @@ class RRTStarGraph(RRTGraph):
 
         # Manhattan distance
         if math.fabs(x - self.goal[0]) + math.fabs(y - self.goal[1]) < self.goal_tolerance:
-            return new_node_id, True, rewired_edges
+            self.goal_flag = True
+            self.end_node = new_node_id
+            self.goal_tolerance = 20  # after finding it once, decrease goal tolerance to make sure the path is actually in the goal
 
-        return new_node_id, False, rewired_edges
+        return new_node_id, self.goal_flag, rewired_edges
     
 
     def rewire(self, new_node_id, parent_id, visualize = True):
@@ -130,14 +134,12 @@ class RRTStarGraph(RRTGraph):
                 intersection = set(nodes_explored_from_old_parent.keys()) & set(nodes_explored_from_new_parent.keys())
                 if intersection:  # if there is a shared node, compare the cost of the paths from the shared node to the new node
                     shared_parent_id = intersection.pop()
-                    print("Intersection found!")
-                    print("nodes_explored_from_old_parent: " + str(nodes_explored_from_old_parent))
-                    print("nodes_explored_from_new_parent: " + str(nodes_explored_from_new_parent))
-                    print("intersection: " + str(intersection))
-                    print("nodes_explored_from_old_parent[shared_parent_id]: " + str(nodes_explored_from_old_parent[shared_parent_id]))
-                    print("nodes_explored_from_new_parent[shared_parent_id]: " + str(nodes_explored_from_new_parent[shared_parent_id]))
-                    if nodes_explored_from_new_parent[shared_parent_id] < nodes_explored_from_old_parent[shared_parent_id]:
-                        print("-------------------------------------------------------------------------------TRUE")
+                    # print("Intersection found!")
+                    # print("nodes_explored_from_old_parent: " + str(nodes_explored_from_old_parent))
+                    # print("nodes_explored_from_new_parent: " + str(nodes_explored_from_new_parent))
+                    # print("intersection: " + str(intersection))
+                    # print("nodes_explored_from_old_parent[shared_parent_id]: " + str(nodes_explored_from_old_parent[shared_parent_id]))
+                    # print("nodes_explored_from_new_parent[shared_parent_id]: " + str(nodes_explored_from_new_parent[shared_parent_id]))
                     # True if new parent has lower cost
                     return nodes_explored_from_new_parent[shared_parent_id] < nodes_explored_from_old_parent[shared_parent_id]
                 
@@ -170,7 +172,6 @@ class RRTStarGraph(RRTGraph):
                     # Change parent of neighbor to new_node (remaking the whole tuple bc tuples are immutable)
                     self.tree[neighbor] = ((neighbor_x, neighbor_y), new_node_id, new_neighbor_cost)
 
-        print(rewired_edges)
         return rewired_edges
 
     
@@ -223,3 +224,14 @@ class RRTStarGraph(RRTGraph):
                 return x, y, nearest_node_id
             
             safety_counter -= 1
+
+    def return_path(self):
+        while True:
+            path = [(self.goal[0], self.goal[1])]
+            node_id = self.end_node
+            while node_id != 0:
+                path.append(self.tree[node_id][0])  # (x,y) tuple
+                node_id = self.tree[node_id][1]
+            path.append((self.start[0], self.start[1]))
+            path.reverse()
+            return path
